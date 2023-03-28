@@ -17,7 +17,7 @@ pytest_plugins = [
 ]
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='session', autouse=True)
 def faker_seed() -> int:
     """Craete random seed for tests."""
     return random.Random().getrandbits(32)  # noqa: WPS432
