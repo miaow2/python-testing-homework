@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import pytest
 from django.test import Client
@@ -9,7 +9,12 @@ from mimesis.schema import Field
 from server.apps.identity.models import User
 
 if TYPE_CHECKING:
+    from server.common.django.types import Settings
     from tests.test_apps.test_identity.conftest import (
+        APIUserResponse as APIResponse,
+    )
+    from tests.test_apps.test_identity.conftest import (
+        LeadIDData,
         RegistrationData,
         RegistrationDataFactory,
         UserAssertion,
@@ -31,6 +36,79 @@ def test_valid_registration(
     )
     assert response.status_code == HTTPStatus.FOUND
     assert_correct_user(registration_data['email'], user_data)
+
+
+@pytest.mark.django_db()
+def test_valid_with_mock_registration(
+    client: Client,
+    registration_data: 'RegistrationData',
+    user_data: 'UserData',
+    assert_correct_user: 'UserAssertion',
+    lead_id_mock_factory: 'LeadIDData',
+    placeholder_api_mock: Callable[['Settings', 'APIResponse'], 'APIResponse'],
+) -> None:
+    """Test that registration works with correct user data."""
+    lead_id_mock = lead_id_mock_factory(
+        placeholder_api_mock,
+    )  # type: ignore[misc]
+    response = client.post(
+        reverse('identity:registration'),
+        data=registration_data | lead_id_mock,
+    )
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.get('Location') == reverse('identity:login')
+    assert_correct_user(
+        registration_data['email'],
+        user_data | lead_id_mock,
+    )
+
+
+@pytest.mark.django_db()
+def test_valid_with_json_server_registration(
+    client: Client,
+    registration_data: 'RegistrationData',
+    user_data: 'UserData',
+    assert_correct_user: 'UserAssertion',
+    lead_id_mock_factory: 'LeadIDData',
+    json_server_api_mock: Callable[['Settings', 'APIResponse'], 'APIResponse'],
+) -> None:
+    """Test that registration works with correct user data."""
+    lead_id_mock = lead_id_mock_factory(
+        json_server_api_mock,
+    )  # type: ignore[misc]
+    response = client.post(
+        reverse('identity:registration'),
+        data=registration_data | lead_id_mock,
+    )
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.get('Location') == reverse('identity:login')
+    assert_correct_user(
+        registration_data['email'],
+        user_data | lead_id_mock,
+    )
+
+
+@pytest.mark.django_db()
+def test_valid_with_real_request_registration(
+    client: Client,
+    registration_data: 'RegistrationData',
+    user_data: 'UserData',
+    assert_correct_user: 'UserAssertion',
+    lead_id_mock_factory: 'LeadIDData',
+    real_request_mock: Callable[['Settings', 'APIResponse'], 'APIResponse'],
+) -> None:
+    """Test that registration works with correct user data."""
+    lead_id_mock = lead_id_mock_factory(real_request_mock)  # type: ignore[misc]
+    response = client.post(
+        reverse('identity:registration'),
+        data=registration_data | lead_id_mock,
+    )
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.get('Location') == reverse('identity:login')
+    assert_correct_user(
+        registration_data['email'],
+        user_data | lead_id_mock,
+    )
 
 
 @pytest.mark.django_db()
